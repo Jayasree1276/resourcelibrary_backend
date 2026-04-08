@@ -1,0 +1,31 @@
+package com.example.library.model;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+
+@Entity
+public class Resource {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String title;
+    private String subject;
+    private String type;
+    private String fileUrl;
+    
+    public Resource() {}
+
+    public Resource(Long id, String title, String subject, String type, String fileUrl) {
+        this.id = id;
+        this.title = title;
+        this.subject = subject;
+        this.type = type;
+        this.fileUrl = fileUrl;
+    }
+
+
+}

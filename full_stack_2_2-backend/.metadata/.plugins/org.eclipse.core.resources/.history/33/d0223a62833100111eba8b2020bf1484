@@ -1,0 +1,17 @@
+package com.example.library.model;
+
+
+@Entity
+public class Resource {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String title;
+    private String subject;
+    private String type;
+    private String fileUrl;
+public class Resource {
+
+}
