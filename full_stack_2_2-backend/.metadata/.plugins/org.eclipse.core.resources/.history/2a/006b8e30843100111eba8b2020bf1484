@@ -1,8 +1,0 @@
-package com.example.library.service;
-
-
-
-@Service
-public class ResourceService {
-
-}
