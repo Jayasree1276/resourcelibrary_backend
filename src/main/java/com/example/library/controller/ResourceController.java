@@ -7,6 +7,7 @@ import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,14 +20,15 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
 import com.example.library.model.Resource;
 import com.example.library.service.ResourceService;
-
-
 @RestController
 @RequestMapping("/api/resources")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
 public class ResourceController {
 	 @Autowired
 	    private ResourceService service;
@@ -116,6 +118,43 @@ public class ResourceController {
 	        }
 
 	        return service.saveResource(existing);
+	    }
+
+	    @GetMapping("/download/{id}")
+	    public ResponseEntity<org.springframework.core.io.Resource> downloadResource(@PathVariable Long id) {
+	        Resource resource = service.getResourceById(id);
+	        if (resource == null) {
+	            return ResponseEntity.notFound().build();
+	        }
+	        try {
+	            String fileUrl = resource.getFileUrl();
+	            if (fileUrl == null || fileUrl.isBlank()) {
+	                return ResponseEntity.notFound().build();
+	            }
+
+	            String fileName;
+	            if (fileUrl.contains("/uploads/")) {
+	                fileName = fileUrl.substring(fileUrl.lastIndexOf("/uploads/") + "/uploads/".length());
+	            } else {
+	                fileName = Paths.get(fileUrl).getFileName().toString();
+	            }
+
+	            Path filePath = Paths.get("uploads", fileName);
+	            org.springframework.core.io.Resource fileResource = new UrlResource(filePath.toUri());
+
+	            if (fileResource.exists() && fileResource.isReadable()) {
+	                String contentType = Files.probeContentType(filePath);
+	                return ResponseEntity.ok()
+	                        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+	                        .contentType(contentType != null ? MediaType.parseMediaType(contentType) : MediaType.APPLICATION_OCTET_STREAM)
+	                        .contentLength(Files.size(filePath))
+	                        .body(fileResource);
+	            } else {
+	                return ResponseEntity.notFound().build();
+	            }
+	        } catch (Exception e) {
+	            return ResponseEntity.internalServerError().build();
+	        }
 	    }
 
 	    private String storeFile(MultipartFile file) throws Exception {
