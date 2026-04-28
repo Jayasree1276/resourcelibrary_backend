@@ -20,7 +20,6 @@ import com.example.library.repository.UserRepository;
 public class UserService {
 
     private static final int VERIFICATION_TOKEN_HOURS = 24;
-    private static final int RESET_TOKEN_MINUTES = 60;
     private static final Pattern EMAIL_PATTERN =
             Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
 
@@ -78,33 +77,33 @@ public class UserService {
 
     @Transactional
     public String forgotPassword(String email) {
-        if (email == null || email.isBlank()) {
-            throw new IllegalArgumentException("Email is required.");
-        }
-
-        repository.findByEmail(email.trim()).ifPresent(user -> {
-            issueResetPasswordToken(user);
-            repository.save(user);
-            sendResetPasswordEmail(user);
-        });
-
-        return "If an account exists with this email, a password reset link has been sent.";
+        validateEmail(email);
+        repository.findByEmail(email.trim())
+                .orElseThrow(() -> new IllegalArgumentException("Account does not exist. Please register first."));
+        return "Account found. You can set a new password now.";
     }
 
     @Transactional
-    public String resetPassword(String token, String newPassword) {
-        if (token == null || token.isBlank()) {
-            throw new IllegalArgumentException("Reset token is required.");
-        }
+    public String resetPassword(String email, String token, String newPassword) {
         if (newPassword == null || newPassword.isBlank()) {
             throw new IllegalArgumentException("New password is required.");
         }
 
-        User user = repository.findByResetPasswordToken(token.trim())
-                .orElseThrow(() -> new IllegalArgumentException("Invalid password reset token."));
+        User user;
 
-        if (isExpired(user.getResetPasswordTokenExpiry())) {
-            throw new IllegalArgumentException("Password reset token has expired.");
+        if (email != null && !email.isBlank()) {
+            validateEmail(email);
+            user = repository.findByEmail(email.trim())
+                    .orElseThrow(() -> new IllegalArgumentException("Account does not exist. Please register first."));
+        } else if (token != null && !token.isBlank()) {
+            user = repository.findByResetPasswordToken(token.trim())
+                    .orElseThrow(() -> new IllegalArgumentException("Invalid password reset token."));
+
+            if (isExpired(user.getResetPasswordTokenExpiry())) {
+                throw new IllegalArgumentException("Password reset token has expired.");
+            }
+        } else {
+            throw new IllegalArgumentException("Email is required to reset the password.");
         }
 
         user.setPassword(newPassword);
@@ -162,11 +161,6 @@ public class UserService {
         user.setVerificationTokenExpiry(LocalDateTime.now().plusHours(VERIFICATION_TOKEN_HOURS));
     }
 
-    private void issueResetPasswordToken(User user) {
-        user.setResetPasswordToken(UUID.randomUUID().toString());
-        user.setResetPasswordTokenExpiry(LocalDateTime.now().plusMinutes(RESET_TOKEN_MINUTES));
-    }
-
     private boolean isExpired(LocalDateTime expiresAt) {
         return expiresAt == null || expiresAt.isBefore(LocalDateTime.now());
     }
@@ -184,15 +178,6 @@ public class UserService {
                 + verificationLink + "\n\n"
                 + "This link expires in " + VERIFICATION_TOKEN_HOURS + " hours.";
         emailService.sendEmail(user.getEmail(), "Verify your email", body);
-    }
-
-    private void sendResetPasswordEmail(User user) {
-        String resetLink = buildLink("/reset-password?token=", user.getResetPasswordToken());
-        String body = "Hi " + user.getName() + ",\n\n"
-                + "You can reset your password using the link below:\n"
-                + resetLink + "\n\n"
-                + "This link expires in " + RESET_TOKEN_MINUTES + " minutes.";
-        emailService.sendEmail(user.getEmail(), "Reset your password", body);
     }
 
     private String buildLink(String path, String token) {

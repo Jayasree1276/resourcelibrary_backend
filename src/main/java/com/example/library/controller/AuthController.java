@@ -41,7 +41,10 @@ public class AuthController {
 
     @PostMapping("/reset-password")
     public AuthMessageResponse resetPassword(@RequestBody ResetPasswordRequest request) {
-        return new AuthMessageResponse(userService.resetPassword(request.getToken(), request.getNewPassword()));
+        return new AuthMessageResponse(userService.resetPassword(
+                request.getEmail(),
+                request.getToken(),
+                request.getNewPassword()));
     }
 
     @PostMapping("/verify-email")
