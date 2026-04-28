@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +21,8 @@ public class UserService {
 
     private static final int VERIFICATION_TOKEN_HOURS = 24;
     private static final int RESET_TOKEN_MINUTES = 60;
+    private static final Pattern EMAIL_PATTERN =
+            Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
 
     @Autowired
     private UserRepository repository;
@@ -44,6 +47,8 @@ public class UserService {
 
     @Transactional
     public User registerUser(User user) {
+        validateEmail(user.getEmail());
+
         Optional<User> existingUser = repository.findByEmail(user.getEmail());
         if (existingUser.isPresent()) {
             throw new IllegalArgumentException("Account with this email already exists.");
@@ -66,10 +71,6 @@ public class UserService {
 
         if (!user.getPassword().equals(password) || !storedRole.equals(requestedRole)) {
             throw new IllegalArgumentException("Invalid email/password or role combination.");
-        }
-
-        if (Boolean.FALSE.equals(user.getEmailVerified())) {
-            throw new IllegalArgumentException("Please verify your email before logging in.");
         }
 
         return user;
@@ -168,6 +169,12 @@ public class UserService {
 
     private boolean isExpired(LocalDateTime expiresAt) {
         return expiresAt == null || expiresAt.isBefore(LocalDateTime.now());
+    }
+
+    private void validateEmail(String email) {
+        if (email == null || email.isBlank() || !EMAIL_PATTERN.matcher(email.trim()).matches()) {
+            throw new IllegalArgumentException("Please enter a valid email address.");
+        }
     }
 
     private void sendVerificationEmail(User user) {
