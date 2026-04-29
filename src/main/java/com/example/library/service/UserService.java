@@ -82,7 +82,11 @@ public class UserService {
             throw new IllegalStateException("Registration is temporarily unavailable. Please try again shortly.");
         }
 
-        sendVerificationEmail(savedUser);
+        try {
+            sendVerificationEmail(savedUser);
+        } catch (IllegalStateException exception) {
+            logger.warn("User {} registered but verification email could not be sent", savedUser.getEmail(), exception);
+        }
         return savedUser;
     }
 
