@@ -12,10 +12,14 @@ public class WebConfig implements WebMvcConfigurer {
     @Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
 
+    @Value("${app.frontend-preview-pattern:https://*.vercel.app}")
+    private String frontendPreviewPattern;
+
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
                 .allowedOrigins(frontendUrl)
+                .allowedOriginPatterns(frontendPreviewPattern)
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true);

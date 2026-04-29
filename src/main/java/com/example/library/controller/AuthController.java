@@ -3,12 +3,9 @@ package com.example.library.controller;
 import com.example.library.model.AuthMessageResponse;
 import com.example.library.model.EmailRequest;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.library.model.LoginRequest;
@@ -55,11 +52,5 @@ public class AuthController {
     @PostMapping("/resend-verification")
     public AuthMessageResponse resendVerification(@RequestBody EmailRequest request) {
         return new AuthMessageResponse(userService.resendVerification(request.getEmail()));
-    }
-
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    @ExceptionHandler(IllegalArgumentException.class)
-    public String handleIllegalArgumentException(IllegalArgumentException exception) {
-        return exception.getMessage();
     }
 }

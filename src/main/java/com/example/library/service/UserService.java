@@ -8,8 +8,12 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,6 +23,7 @@ import com.example.library.repository.UserRepository;
 @Service
 public class UserService {
 
+    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
     private static final int VERIFICATION_TOKEN_HOURS = 24;
     private static final Pattern EMAIL_PATTERN =
             Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
@@ -46,17 +51,37 @@ public class UserService {
 
     @Transactional
     public User registerUser(User user) {
-        validateEmail(user.getEmail());
+        if (user == null) {
+            throw new IllegalArgumentException("Registration details are required.");
+        }
 
-        Optional<User> existingUser = repository.findByEmail(user.getEmail());
-        if (existingUser.isPresent()) {
-            throw new IllegalArgumentException("Account with this email already exists.");
+        normalizeRegistrationInput(user);
+        validateRegistrationInput(user);
+
+        try {
+            Optional<User> existingUser = repository.findByEmail(user.getEmail());
+            if (existingUser.isPresent()) {
+                throw new IllegalArgumentException("Account with this email already exists.");
+            }
+        } catch (DataAccessException exception) {
+            logger.error("Failed to check for existing account during registration for {}", user.getEmail(), exception);
+            throw new IllegalStateException("Registration is temporarily unavailable. Please try again shortly.");
         }
 
         user.setEmailVerified(Boolean.FALSE);
         issueVerificationToken(user);
 
-        User savedUser = repository.save(user);
+        User savedUser;
+        try {
+            savedUser = repository.save(user);
+        } catch (DataIntegrityViolationException exception) {
+            logger.warn("Registration rejected by database constraints for {}", user.getEmail(), exception);
+            throw new IllegalArgumentException("Unable to register account. Please check the submitted details.");
+        } catch (DataAccessException exception) {
+            logger.error("Database error while registering {}", user.getEmail(), exception);
+            throw new IllegalStateException("Registration is temporarily unavailable. Please try again shortly.");
+        }
+
         sendVerificationEmail(savedUser);
         return savedUser;
     }
@@ -169,6 +194,31 @@ public class UserService {
         if (email == null || email.isBlank() || !EMAIL_PATTERN.matcher(email.trim()).matches()) {
             throw new IllegalArgumentException("Please enter a valid email address.");
         }
+    }
+
+    private void validateRegistrationInput(User user) {
+        validateEmail(user.getEmail());
+
+        if (user.getName() == null || user.getName().isBlank()) {
+            throw new IllegalArgumentException("Name is required.");
+        }
+
+        if (user.getPassword() == null || user.getPassword().isBlank()) {
+            throw new IllegalArgumentException("Password is required.");
+        }
+    }
+
+    private void normalizeRegistrationInput(User user) {
+        user.setName(user.getName() == null ? null : user.getName().trim());
+        user.setEmail(normalizeEmail(user.getEmail()));
+        user.setPassword(user.getPassword() == null ? null : user.getPassword().trim());
+
+        String normalizedRole = user.getRole() == null ? "" : user.getRole().trim().toLowerCase();
+        user.setRole(normalizedRole.isEmpty() ? "user" : normalizedRole);
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase();
     }
 
     private void sendVerificationEmail(User user) {

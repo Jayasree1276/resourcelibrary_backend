@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.springframework.core.io.UrlResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -166,6 +167,9 @@ public class ResourceController {
 
 	        Path filePath = Paths.get(uploadDir + fileName);
 	        Files.write(filePath, file.getBytes());
-	        return "http://localhost:8080/uploads/" + fileName;
+	        return ServletUriComponentsBuilder.fromCurrentContextPath()
+	                .path("/uploads/")
+	                .path(fileName)
+	                .toUriString();
 	    }
 }
